@@ -21,36 +21,33 @@ CORE=	main.o base64.o global.o console.o process.o net.o fs.o buffer.o v8.o http
 OBJ=	mysql.o memcached.o gd.o ncurses.o sem.o logfile.o sqlite3.o xhrhelper.o curl.o ssh2.o sftp.o ftp.o ftplib.o editline.o cairo.o expat.o
 #OBJ=	memcached.o gd.o ncurses.o sem.o logfile.o sqlite3.o xhrhelper.o curl.o ssh2.o sftp.o ftp.o ftplib.o editline.o cairo.o expat.o
 
-V8DIR=	./v8-read-only
+V8LIBS = -lv8
 
-# V8LIB_64 := $(V8DIR)/out/x64.release/obj.target/tools/gyp
-# V8LIB_32 := $(V8DIR)/out/ia32.release/obj.target/tools/gyp
-V8LIB_64 := $(V8DIR)/out/x64.release/obj.target/tools/gyp
-V8LIB_32 := $(V8DIR)/out/ia32.release/obj.target/tools/gyp
-V8LIB_DIR := $(V8LIB_$(ARCH))
+INCDIRS=    -I/usr/include/mysql
 
-V8VERSION_64 := x64.release
-V8VERSION_32 := ia32.release
-V8VERSION := $(V8VERSION_$(ARCH))
-
-V8=	$(V8LIB_DIR)/libv8_base.a $(V8LIB_DIR)/libv8_snapshot.a $(V8LIB_DIR)/libv8.so
-# V8LIBS = -L$(V8LIB_DIR) -lv8_base -lv8_snapshot
-V8LIBS = -L$(V8LIB_DIR) -lv8
-
-INCDIRS=    -I$(V8DIR)/include -I/usr/include/mysql
-
-LIBDIRS=    -L$(V8LIB_DIR)/ 
+LIBDIRS=    
 
 CFLAGS = -fexceptions -fomit-frame-pointer -fdata-sections -ffunction-sections -fno-strict-aliasing -fvisibility=hidden -Wall -W -Wno-ignored-qualifiers -Wno-unused-function -Wno-unused-parameter -Wnon-virtual-dtor -m$(ARCH) -O3 -fomit-frame-pointer -fdata-sections -ffunction-sections -ansi -fno-strict-aliasing -DNEW_MEMCACHED
 
 %.o: %.cpp SilkJS.h 
 	g++ $(CFLAGS) -c $(INCDIRS) -o $*.o $*.cpp
 
-silkjs: deps $(V8DIR) $(V8) $(CORE) $(OBJ) SilkJS.h Makefile
-	g++ -o silkjs $(CORE) $(OBJ) $(V8LIBS) -lmysqlclient -lmm -lgd -lncurses -lssl -lpthread -lsqlite3 -lcurl -lssh2 -lmemcached -lcairo -ldl -lexpat -Wl,-rpath=/usr/local/silkjs/src/v8,-rpath=$(V8LIB_DIR) 
+silkjs: deps $(V8) $(CORE) $(OBJ) SilkJS.h Makefile
+	g++ -o silkjs $(CORE) $(OBJ) $(V8LIBS) -lmysqlclient -lmm -lgd -lncurses -lssl -lpthread -lsqlite3 -lcurl -lssh2 -lmemcached -lcairo -ldl -lexpat -Wl,-rpath=/usr/local/silkjs/src/v8 
 
 deps: 
-	sudo apt-get -y install libmm-dev libmysqlclient-dev libmemcached-dev libgd2-xpm-dev libncurses5-dev libsqlite3-dev libcurl4-openssl-dev libssh2-1-dev libcairo2-dev
+	if [ ! "`dpkg-query -s libmm-dev`" ]; then sudo apt-get -y install libmm-dev; fi 
+	if [ ! "`dpkg-query -s libmysqlclient-dev`" ]; then sudo apt-get -y install libmysqlclient-dev; fi 
+	if [ ! "`dpkg-query -s libmemcached-dev`" ]; then sudo apt-get -y install libmemcached-dev; fi 
+	if [ ! "`dpkg-query -s libgd2-dev`" ]; then sudo apt-get -y install libgd2-dev; fi 
+	if [ ! "`dpkg-query -s libncurses5-dev`" ]; then sudo apt-get -y install libncurses5-dev; fi 
+	if [ ! "`dpkg-query -s libsqlite3-dev`" ]; then sudo apt-get -y install libsqlite3-dev; fi 
+	if [ ! "`dpkg-query -s libcurl4-openssl-dev`" ]; then sudo apt-get -y install libcurl4-openssl-dev; fi 
+	if [ ! "`dpkg-query -s libssh2-1-dev`" ]; then sudo apt-get -y install libssh2-1-dev; fi 
+	if [ ! "`dpkg-query -s libcairo2-dev`" ]; then sudo apt-get -y install libcairo2-dev; fi 
+
+$(V8):
+	if [ ! "`dpkg-query -s libv8-dev`" ]; then sudo apt-get -y install libv8-dev; fi 
 
 debug:	    CFLAGS += -g
 debug:	    silkjs
@@ -58,7 +55,7 @@ debug:	    silkjs
 bootstrap:  CFLAGS += -DBOOTSTRAP_SILKJS
 
 bootstrap:  $(V8) $(CORE) SilkJS.h Makefile
-	g++ $(CFLAGS) -o bootstrap-silkjs $(CORE) -L$(V8LIB_DIR)/ -lv8_base -lv8_snapshot -lpthread
+	g++ $(CFLAGS) -o bootstrap-silkjs $(CORE) $(V8LIBS)
 
 perms:
 	sudo chgrp $(GROUP)  /usr/local /usr/local/bin 
@@ -75,25 +72,12 @@ install:	silkjs perms
 	cp silkjs /usr/local/silkjs/bin
 	ln -sf /usr/local/silkjs/bin/silkjs /usr/local/bin
 	ln -sf /usr/local/silkjs/httpd/main.js /usr/local/bin/httpd-silk.js
-	
-$(V8DIR):
-	echo "svn checkout"
-#	svn checkout http://v8.googlecode.com/svn/branches/bleeding_edge/ v8-read-only
-	svn checkout -r 12823 http://v8.googlecode.com/svn/trunk/ v8-read-only
-
-$(V8):
-	# cd $(V8DIR) && svn update -r12823 && make dependencies && GYP_GENERATORS=make make GYPFLAGS="-Dcomponent=shared_library -Dv8_enable_extra_checks=0" -j 4 $(V8VERSION)
-	cd $(V8DIR) && svn update -r12823 && make dependencies && GYP_GENERATORS=make make $(V8VERSION) library=shared -j 2
-
-update:
-	cd $(V8DIR) && svn update -r 12823 && make dependencies && GYP_GENERATORS=make make $(V8VERSION)
-	git pull
-	
+		
 clean:
 	rm -rf silkjs *.o
 
 realclean:
-	rm -rf silkjs *.o v8-read-only
+	rm -rf silkjs *.o
 
 release: silkjs
 	tar czvfp ~/SilkJS.tgz silkjs examples httpd lib
