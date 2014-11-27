@@ -40,6 +40,8 @@ deps:
 	if [ -n "`rpm -V sqlite-devel`" ]; then sudo yum -y install sqlite-devel; fi
 	if [ -n "`rpm -V community-mysql-devel`" ]; then sudo yum -y install community-mysql-devel; fi
 	if [ -n "`rpm -V gd-devel`" ]; then sudo yum -y install gd-devel; fi
+
+$(V8):	
 	if [ -n "`rpm -V v8-devel`" ]; then sudo yum -y install v8-devel; fi
 
 debug:	    CFLAGS += -g
