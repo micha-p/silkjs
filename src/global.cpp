@@ -202,7 +202,7 @@ void init_global_object () {
     init_sem_object();
     init_mysql_object();
     init_sqlite3_object();
-    init_memcached_object();
+  /*  init_memcached_object(); TODO */
     init_gd_object();
     init_ncurses_object();
     init_curl_object();
